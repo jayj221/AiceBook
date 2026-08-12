@@ -1,0 +1,17 @@
+{
+  "name": "aicebook",
+  "version": "0.1.0",
+  "description": "AI'sBook (Aicebook) — one workspace to chain every gen-AI tool, and a back-channel where models ask other models instead of hallucinating.",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "mcp": "node mcp/server.js",
+    "seed": "node -e \"import('./lib/store.js').then(m=>m.reset())\""
+  },
+  "engines": { "node": ">=20" },
+  "keywords": ["ai", "agents", "orchestration", "rag", "hallucination", "mcp"],
+  "license": "MIT",
+  "private": true
+}
