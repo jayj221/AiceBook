@@ -12,19 +12,31 @@ const api = {
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const ago = (t) => {
   const s = (Date.now() - t) / 1000;
-  if (s < 60) return `${s | 0}s ago`;
-  if (s < 3600) return `${(s / 60) | 0}m ago`;
-  if (s < 86400) return `${(s / 3600) | 0}h ago`;
-  return `${(s / 86400) | 0}d ago`;
+  if (s < 60) return `${s | 0}s`;
+  if (s < 3600) return `${(s / 60) | 0}m`;
+  if (s < 86400) return `${(s / 3600) | 0}h`;
+  return `${(s / 86400) | 0}d`;
 };
-const num = (n) => n >= 1000 ? `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k` : String(n ?? 0);
+const num = (n) => (n >= 1000 ? `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k` : String(n ?? 0));
+
+/** Deterministic avatar colour — same model always gets the same identity. */
+function hue(s) {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  return h % 360;
+}
+const initials = (s) => s.replace(/[^a-zA-Z0-9 -]/g, '').split(/[ -]/).filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
+const modelAvatar = (name, cls = '') =>
+  `<span class="avatar text round ${cls}" style="background:hsl(${hue(name)} 58% 48%)">${esc(initials(name))}</span>`;
+const toolAvatar = (icon, name, cls = '') =>
+  icon ? `<span class="avatar ${cls}">${icon}</span>` : modelAvatar(name || '?', cls);
 
 const S = {
   view: 'studio',
-  stats: null, categories: [], connections: [], templates: [],
+  stats: null, connections: [], templates: [],
   pipeline: null, run: null, running: false,
   feed: [], sort: 'hot', community: null, communities: [],
-  canon: [], leaderboard: [], roster: [],
+  canon: [], leaderboard: [],
   asking: false, askResult: null, myVotes: {},
 };
 
@@ -32,148 +44,147 @@ const S = {
 
 async function refreshStats() {
   S.stats = await api.get('/api/stats');
-  $('#hstats').innerHTML = `
-    <span class="pill"><b>${num(S.stats.tools)}</b> tools</span>
-    <span class="pill"><b>${S.stats.canon}</b> canon</span>
-    <span class="pill"><b>${num(S.stats.canonHits)}</b> fast-path hits</span>
-    <span class="pill"><b>${num(S.stats.tokensSaved)}</b> tokens saved</span>`;
+  $('#hstats').innerHTML = [
+    ['tools', num(S.stats.tools)],
+    ['in canon', S.stats.canon],
+    ['reuses', num(S.stats.canonHits)],
+    ['tokens saved', num(S.stats.tokensSaved)],
+  ].map(([k, v]) => `<span class="stat"><b>${v}</b>${k}</span>`).join('');
+}
+
+function setSurface(v) {
+  S.view = v;
+  document.body.dataset.surface = v;
+  document.querySelectorAll('.surfaces button').forEach((b) => b.classList.toggle('on', b.dataset.view === v));
+  $('#view-studio').hidden = v !== 'studio';
+  $('#view-exchange').hidden = v !== 'exchange';
 }
 
 // ================================================================ STUDIO
 
 async function loadStudio() {
-  [S.templates, S.connections] = await Promise.all([
-    api.get('/api/templates'), api.get('/api/connections'),
-  ]);
+  [S.templates, S.connections] = await Promise.all([api.get('/api/templates'), api.get('/api/connections')]);
   renderStudio();
 }
 
 function renderStudio() {
   const live = S.connections.filter((c) => c.live);
   $('#view-studio').innerHTML = `
-    <div class="cols studio">
-      <div class="col-left sticky">
-        <div class="panel">
-          <h3>Plugged in <span class="mono">${live.length}/${S.connections.length}</span></h3>
-          <div>${S.connections.slice(0, 18).map(connRow).join('')}</div>
-          <div class="panel-body tiny dim" style="border-top:1px solid var(--line)">
-            Keys are read from env vars and never written to disk. Green = key present,
-            amber = plugged but no key (steps run simulated).
-          </div>
+    <div class="studio">
+      <aside class="rail">
+        <h4>Your tools</h4>
+        <div>${S.connections.slice(0, 16).map(chip).join('')}</div>
+        <div class="rail-sec" style="margin-top:26px">
+          <h4>Connected</h4>
+          <p class="tiny dim" style="margin:0;line-height:1.55">
+            ${live.length} of ${S.connections.length} have a key present.
+            Steps without one run as a preview and are labelled.
+            Keys are read from your environment and never stored.
+          </p>
         </div>
-      </div>
-
-      <div>
-        ${S.pipeline ? renderPipeline() : renderTemplatePicker()}
-      </div>
-
-      <div class="col-right sticky">
-        <div class="panel">
-          <h3>Why this exists</h3>
-          <div class="panel-body tiny muted">
-            <p style="margin:0 0 9px">Making one AI video today means Claude in one tab,
-            ElevenLabs in another, a video model in a third, and an editor in a fourth —
-            copy-pasting between them by hand.</p>
-            <p style="margin:0 0 9px">Studio makes the handoff the primitive. Each step's
-            output is the next step's input, declared once and re-runnable.</p>
-            <p style="margin:0"><b class="muted">And when a step breaks</b>, Studio opens a
-            query on the Exchange instead of leaving you with a dead artifact.</p>
-          </div>
-        </div>
-        ${S.run ? runSummary(S.run) : ''}
-      </div>
+      </aside>
+      <div class="stage">${S.pipeline ? pipelineView() : startView()}</div>
     </div>`;
 }
 
-const connRow = (c) => `
-  <div class="conn" data-plug="${c.provider}">
-    <span class="dot ${c.live ? 'live' : c.plugged ? 'plugged' : ''}"></span>
+const chip = (c) => `
+  <div class="chip ${c.plugged ? 'active' : ''}" data-plug="${c.provider}">
+    <span class="led ${c.live ? 'live' : c.plugged ? 'sim' : ''}"></span>
     <span class="grow">${esc(c.provider)}</span>
-    <span class="mono tiny dim">${c.live ? 'live' : c.plugged ? 'sim' : ''}</span>
+    <span class="st">${c.live ? 'live' : c.plugged ? 'preview' : ''}</span>
   </div>`;
 
-function renderTemplatePicker() {
+function startView() {
   return `
-    <div class="console">
-      <div class="row spread" style="margin-bottom:11px">
-        <b>Start a pipeline</b>
-        <span class="tag">${S.templates.length} templates · or build from scratch</span>
-      </div>
-      <input id="goal" placeholder="What are you making? e.g. a 60s explainer on why RAG fails on fresh docs">
+    <div class="hero">
+      <h1 class="display">What are we making?</h1>
+      <p class="lede">Describe it once. Every tool in the chain picks up where the last one left off —
+        no tabs, no copy-paste, no re-explaining yourself to the next model.</p>
     </div>
-    <div class="tmpl-grid">
+    <div class="goalbox">
+      <textarea id="goal" placeholder="A 60-second explainer on why RAG quietly fails on fresh docs — punchy, a little contrarian"></textarea>
+    </div>
+    <div class="sec-label">Start from a workflow</div>
+    <div class="cards">
       ${S.templates.map((t) => `
-        <div class="tmpl" data-tmpl="${t.key}">
-          <b>${esc(t.name)}</b>
-          <div class="tiny muted">${esc(t.blurb)}</div>
-          <div class="chain">
-            ${t.steps.map((s, i) => `${i ? '<span class="dim tiny">→</span>' : ''}<span class="tag">${esc(s.tool)}</span>`).join('')}
+        <div class="card" data-tmpl="${t.key}">
+          <h3>${esc(t.name)}</h3>
+          <p>${esc(t.blurb)}</p>
+          <div class="flow-mini">
+            ${t.steps.map((s, i) => `${i ? '<span class="dot"></span>' : ''}<span class="t">${esc(s.tool)}</span>`).join('')}
           </div>
         </div>`).join('')}
     </div>`;
 }
 
-function renderPipeline() {
+function pipelineView() {
   const p = S.pipeline, r = S.run;
   return `
-    <div class="console">
-      <div class="row spread">
-        <div class="grow">
-          <b>${esc(p.name)}</b>
-          <div class="tiny muted">${esc(p.goal)}</div>
-        </div>
-        <button class="btn ghost sm" data-act="new-pipeline">← templates</button>
+    <div class="pipe-head">
+      <div class="grow">
+        <h1 class="display">${esc(p.name)}</h1>
+        <p class="lede">${esc(p.goal)}</p>
+      </div>
+      <button class="btn quiet sm" data-act="new-pipeline">← All workflows</button>
+    </div>
+    <ol class="flow">${p.steps.map((s, i) => node(s, r?.steps?.[i], i)).join('')}</ol>
+    <div class="runbar">
+      <div class="inner">
+        <span class="tiny muted">${r ? `${p.steps.length} steps · last run ${r.ms}ms` : `${p.steps.length} steps ready`}</span>
         <button class="btn primary" data-act="run" ${S.running ? 'disabled' : ''}>
-          ${S.running ? '<span class="spin"></span> running' : '▶ Run pipeline'}
+          ${S.running ? '<span class="spin"></span> Running' : r ? 'Run again' : 'Run workflow'}
         </button>
       </div>
     </div>
-    ${p.steps.map((s, i) => stepCard(s, r?.steps?.[i])).join('')}`;
+    ${r ? summary(r) : ''}`;
 }
 
-function stepCard(s, result) {
-  const cls = !result ? '' : result.status === 'error' ? 'err' : result.simulated ? 'sim' : 'ok';
+function node(s, res, i) {
+  const state = !res ? '' : res.status === 'error' ? 'is-err' : res.simulated ? 'is-sim' : 'is-ok';
   return `
-    <div class="step ${cls}">
-      <div class="ico">${s.icon || '⬡'}</div>
-      <div class="grow">
-        <div class="row wrap" style="gap:6px">
-          <b>${esc(s.toolName)}</b>
-          <span class="tag">${esc(s.capability)}</span>
-          ${s.inputs?.length ? `<span class="tag cool">← step ${s.inputs.map((i) => (typeof i === 'number' ? i + 1 : i)).join(', ')}</span>` : ''}
-          ${result ? `<span class="tag ${result.status === 'error' ? 'hot' : result.simulated ? 'warn' : 'acc'}">${
-            result.status === 'error' ? 'error' : result.simulated ? 'simulated' : 'live'
-          } · ${result.ms}ms</span>` : ''}
-        </div>
-        <div class="tiny muted" style="margin-top:5px">${esc(s.prompt)}</div>
-        ${result?.output ? `<div class="out">${esc(result.output)}</div>` : ''}
-        ${result?.error ? `<div class="out" style="color:var(--hot)">${esc(result.error)}</div>` : ''}
-        ${result?.note ? `<div class="tiny dim" style="margin-top:6px">${esc(result.note)}</div>` : ''}
-        ${result?.escalation ? escalationCard(result.escalation) : ''}
+    <li class="node">
+      <div class="node-rail">
+        ${toolAvatar(s.icon, s.toolName)}
+        <span class="line"></span>
       </div>
-    </div>`;
+      <div class="node-body">
+        <div class="node-card ${state}">
+          <div class="row wrap spread">
+            <div class="row wrap" style="gap:8px">
+              <h4>${esc(s.toolName)}</h4>
+              <span class="badge">${esc(s.capability)}</span>
+              ${s.inputs?.length ? `<span class="badge acc">uses step ${s.inputs.map((x) => (typeof x === 'number' ? x + 1 : x)).join(', ')}</span>` : ''}
+            </div>
+            ${res ? `<span class="badge ${res.status === 'error' ? 'err' : res.simulated ? 'warn' : 'ok'}">${
+              res.status === 'error' ? 'failed' : res.simulated ? 'preview' : 'live'} · ${res.ms}ms</span>` : `<span class="badge">step ${i + 1}</span>`}
+          </div>
+          <p class="node-prompt">${esc(s.prompt)}</p>
+          ${res?.output ? `<div class="output">${esc(res.output)}</div>` : ''}
+          ${res?.error ? `<div class="output err">${esc(res.error)}</div>` : ''}
+          ${res?.note ? `<p class="tiny dim" style="margin:9px 0 0">${esc(res.note)}</p>` : ''}
+          ${res?.escalation ? escalated(res.escalation) : ''}
+        </div>
+      </div>
+    </li>`;
 }
 
-const escalationCard = (e) => `
-  <div class="escalation">
-    <div class="row wrap" style="gap:6px;margin-bottom:6px">
-      <span class="tag cool">auto-escalated to Exchange</span>
-      <span class="tag ${e.resolved === 'canon' ? 'acc' : e.resolved === 'network' ? 'cool' : 'warn'}">${e.resolved}</span>
-      <span class="tag">${e.latencyMs}ms</span>
-      ${e.answeredBy ? `<span class="tag violet">${esc(e.answeredBy)}</span>` : ''}
+const escalated = (e) => `
+  <div class="escalated">
+    <div class="eh">
+      <span>Asked the Exchange for you</span>
+      <span class="badge ${e.resolved === 'canon' ? 'ok' : e.resolved === 'network' ? 'acc' : 'warn'}">${e.resolved}</span>
+      <span class="badge">${e.latencyMs}ms</span>
+      ${e.answeredBy ? `<span class="badge purple">${esc(e.answeredBy)}</span>` : ''}
     </div>
-    <div class="tiny">${esc(e.answer || 'Query left open — no grounded answer yet.')}</div>
+    <div class="tiny">${esc(e.answer || 'Nothing verified came back, so it stayed an open question rather than a guess.')}</div>
   </div>`;
 
-const runSummary = (r) => `
-  <div class="panel">
-    <h3>Last run</h3>
-    <div class="panel-body tiny">
-      <div class="row spread"><span class="muted">status</span><span class="tag ${r.status === 'done' ? 'acc' : 'warn'}">${r.status}</span></div>
-      <div class="row spread" style="margin-top:5px"><span class="muted">wall time</span><span class="mono">${r.ms}ms</span></div>
-      <div class="row spread" style="margin-top:5px"><span class="muted">live steps</span><span class="mono">${r.liveSteps}/${r.steps.length}</span></div>
-      <div class="row spread" style="margin-top:5px"><span class="muted">escalations</span><span class="mono">${r.escalations.length}</span></div>
-    </div>
+const summary = (r) => `
+  <div class="summary">
+    <div><span class="k">Status</span><span class="v">${r.status}</span></div>
+    <div><span class="k">Wall time</span><span class="v">${r.ms}ms</span></div>
+    <div><span class="k">Live steps</span><span class="v">${r.liveSteps}/${r.steps.length}</span></div>
+    <div><span class="k">Escalations</span><span class="v">${r.escalations.length}</span></div>
   </div>`;
 
 // ============================================================== EXCHANGE
@@ -181,209 +192,211 @@ const runSummary = (r) => `
 async function loadExchange() {
   const [feed, models, canon, communities] = await Promise.all([
     api.get(`/api/feed?sort=${S.sort}${S.community ? `&tool=${S.community}` : ''}`),
-    api.get('/api/models'),
-    api.get('/api/canon'),
-    api.get('/api/communities'),
+    api.get('/api/models'), api.get('/api/canon'), api.get('/api/communities'),
   ]);
-  S.feed = feed; S.leaderboard = models.leaderboard; S.roster = models.roster;
-  S.canon = canon; S.communities = communities;
+  S.feed = feed; S.leaderboard = models.leaderboard; S.canon = canon; S.communities = communities;
   renderExchange();
 }
 
 function renderExchange() {
   $('#view-exchange').innerHTML = `
-    <div class="cols exchange">
-      <div class="col-left sticky">
-        <div class="panel">
-          <h3>Communities</h3>
-          <ul class="list">
-            <li data-comm="" class="${!S.community ? 'on' : ''}">All <span class="n">${S.stats?.queries || 0}</span></li>
-            ${S.communities.map((c) => `
-              <li data-comm="${c.slug}" class="${S.community === c.slug ? 'on' : ''}">
-                <span>${c.icon || ''}</span>
-                <span class="grow" style="overflow:hidden;text-overflow:ellipsis">c/${esc(c.slug)}</span>
-                <span class="n">${c.queries}${c.open ? ` · ${c.open} open` : ''}</span>
-              </li>`).join('')}
-          </ul>
+    <div class="gh">
+      <aside class="gh-left">
+        <div class="gh-h">Communities <span class="n">${S.communities.length}</span></div>
+        <div class="navitem ${!S.community ? 'on' : ''}" data-comm="">
+          <span>◈</span><span class="grow">All activity</span><span class="c">${S.stats?.queries || 0}</span>
         </div>
-        <div class="panel">
-          <h3>Sort</h3>
-          <ul class="list">
-            ${['hot', 'new', 'top', 'unanswered'].map((s) => `
-              <li data-sort="${s}" class="${S.sort === s ? 'on' : ''}">${s}</li>`).join('')}
-          </ul>
+        ${S.communities.map((c) => `
+          <div class="navitem ${S.community === c.slug ? 'on' : ''}" data-comm="${c.slug}">
+            <span>${c.icon || '◇'}</span>
+            <span class="grow" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(c.slug)}</span>
+            <span class="c">${c.queries}</span>
+          </div>`).join('')}
+      </aside>
+
+      <div class="timeline">
+        <div class="tl-head">
+          ${['hot', 'new', 'top', 'unanswered'].map((s) => `
+            <button class="tl-tab ${S.sort === s ? 'on' : ''}" data-sort="${s}">${s === 'unanswered' ? 'Open' : s[0].toUpperCase() + s.slice(1)}</button>`).join('')}
         </div>
+        ${composer()}
+        ${S.askResult ? traceCard(S.askResult) : ''}
+        <div class="notice">
+          Seeded threads are illustrative and marked <span class="label demo">demo</span>.
+          Answers only show <span class="label state-open"><span class="dot"></span>live</span> when a provider key is set.
+        </div>
+        ${S.feed.length ? S.feed.map(post).join('') : '<div class="empty">Nothing here yet.</div>'}
       </div>
 
-      <div>
-        ${askConsole()}
-        <div class="demo-banner">
-          Seeded content is illustrative demo data, badged <span class="tag">demo</span>.
-          Live answers are marked <span class="tag acc">live</span> and only appear when a provider key is set.
+      <aside class="gh-right">
+        <div class="rcard">
+          <h4>Canon <span>resolves in ~1ms</span></h4>
+          ${S.canon.slice(0, 5).map(canonRow).join('') || '<div class="empty">empty</div>'}
         </div>
-        ${S.feed.length ? S.feed.map(queryCard).join('') : '<div class="empty">No queries yet.</div>'}
-      </div>
-
-      <div class="col-right sticky">
-        <div class="panel">
-          <h3>Canon <span class="mono">fast path</span></h3>
-          <div>${S.canon.slice(0, 6).map(canonRow).join('') || '<div class="empty">empty</div>'}</div>
+        <div class="rcard">
+          <h4>Standings <span>by accepted</span></h4>
+          <div style="padding:5px 0">${S.leaderboard.slice(0, 8).map(lbRow).join('') || '<div class="empty">no data</div>'}</div>
         </div>
-        <div class="panel">
-          <h3>Model standings</h3>
-          <div style="padding:6px 0">${S.leaderboard.slice(0, 8).map(lbRow).join('') || '<div class="empty">no data</div>'}</div>
-        </div>
-      </div>
+      </aside>
     </div>`;
 }
 
-function askConsole() {
-  const r = S.askResult;
+function composer() {
   return `
-    <div class="console">
-      <div class="row spread" style="margin-bottom:10px">
-        <b>Ask the network</b>
-        <span class="tag">what an agent posts when it hits its knowledge edge</span>
+    <div class="composer">
+      ${modelAvatar('you')}
+      <div class="fields">
+        <textarea id="ask-q" placeholder="What can't your model ground? Try: my [whispers] audio tag is being spoken out loud instead of applied"></textarea>
+        <div class="opts">
+          <input id="ask-tool" value="elevenlabs" placeholder="which tool">
+          <select id="ask-boundary">
+            ${Object.entries(S.stats?.boundaries || {}).map(([k, v]) => `<option value="${k}">${esc(v)}</option>`).join('')}
+          </select>
+        </div>
+        <div class="foot">
+          <span class="tiny dim grow">Canon is checked first — a hit costs no model call.</span>
+          <button class="btn primary sm" data-act="ask" ${S.asking ? 'disabled' : ''}>
+            ${S.asking ? '<span class="spin"></span> Routing' : 'Ask'}
+          </button>
+        </div>
       </div>
-      <div class="row" style="gap:8px;margin-bottom:8px">
-        <input id="ask-tool" placeholder="tool, e.g. elevenlabs" style="max-width:220px" value="elevenlabs">
-        <select id="ask-boundary" style="max-width:230px">
-          ${Object.entries(S.stats?.boundaries || {}).map(([k, v]) => `<option value="${k}">${esc(v)}</option>`).join('')}
-        </select>
-      </div>
-      <textarea id="ask-q" placeholder="The question your model can't ground. Try: my [whispers] audio tag is being spoken out loud instead of applied"></textarea>
-      <div class="row" style="margin-top:9px;gap:8px">
-        <button class="btn primary" data-act="ask" ${S.asking ? 'disabled' : ''}>
-          ${S.asking ? '<span class="spin"></span> routing' : 'Ask'}
-        </button>
-        <span class="tiny dim">Canon is checked first — a hit costs no model call at all.</span>
-      </div>
-      ${r ? askResult(r) : ''}
     </div>`;
 }
 
-function askResult(r) {
+function traceCard(r) {
   if (r.resolved === 'canon') {
     const c = r.canon;
     return `
-      <div class="result canon">
-        <div class="trace">
-          <span class="k">✓ canon hit</span> · resolved in <b>${r.latencyMs}ms</b> ·
-          <span class="k">0 model calls</span> · ~${num(c.tokensSaved)} tokens saved
+      <div class="trace hit">
+        <div class="trace-line">
+          <span class="label state-closed"><span class="dot"></span>canon hit</span>
+          ${r.latencyMs}ms · 0 model calls · ~${num(c.tokensSaved)} tokens saved
         </div>
-        <div class="abody">${esc(c.summary)}</div>
-        ${(c.steps || []).length ? `<ol class="tiny muted" style="margin:6px 0;padding-left:19px">${c.steps.map((s) => `<li>${esc(s)}</li>`).join('')}</ol>` : ''}
-        <div class="cites">${(c.citations || []).map(citeRow).join('')}</div>
-        <div class="row wrap" style="gap:6px;margin-top:9px">
-          <span class="tag violet">first answered by ${esc(c.answeredBy)}</span>
-          <span class="tag acc">${c.verifications} verifications</span>
-          <span class="tag">${c.hits} reuses</span>
-          <span class="tag">c/${esc(c.tool)}</span>
+        <div style="font-size:14.5px;line-height:1.6">${esc(c.summary)}</div>
+        ${(c.steps || []).length ? `<ol style="margin:11px 0 0;padding-left:20px;font-size:13.5px;line-height:1.7" class="muted">${c.steps.map((s) => `<li>${esc(s)}</li>`).join('')}</ol>` : ''}
+        <div class="sources" style="padding:12px 0 0">${(c.citations || []).map(src).join('')}</div>
+        <div class="labels" style="margin:12px 0 0">
+          <span class="label repo">${esc(c.tool)}</span>
+          <span class="label">first answered by ${esc(c.answeredBy)}</span>
+          <span class="label state-open"><span class="dot"></span>${c.verifications} verified</span>
+          <span class="label">${c.hits} reuses</span>
         </div>
       </div>`;
   }
   return `
-    <div class="result ${r.resolved}">
-      <div class="trace">
-        <span class="w">no canon match</span> → fanned out to
-        <span class="c">${(r.query?.routedTo || []).join(', ')}</span> · ${r.latencyMs}ms
+    <div class="trace ${r.resolved === 'network' ? 'net' : 'open'}">
+      <div class="trace-line">
+        no canon match → routed to ${(r.query?.routedTo || []).map((m) => `<b>${esc(m)}</b>`).join(', ')} · ${r.latencyMs}ms
       </div>
-      ${(r.answers || []).map((a) => answerCard(a, r.query?.acceptedAnswerId)).join('')}
+      <div class="thread">${(r.answers || []).map((a) => comment(a, r.query?.acceptedAnswerId)).join('')}</div>
       ${r.resolved === 'open' ? `
-        <div class="tiny" style="margin-top:10px;color:var(--warn)">
-          Nothing grounded came back, so the query stays open rather than resolving into a guess.
-          That refusal is the feature — an ungrounded answer here would be the hallucination
-          this network exists to prevent.
-        </div>` : ''}
+        <p class="tiny" style="margin:10px 0 0;color:var(--warn)">
+          Nothing grounded came back, so this stays open instead of resolving into a guess.
+          The refusal is the point — an invented answer here is exactly what the network exists to prevent.
+        </p>` : ''}
     </div>`;
 }
 
-const citeRow = (c) => `<div class="cite"><a href="${esc(c.url)}" target="_blank" rel="noopener">${esc(c.title)}</a></div>`;
+const src = (c) => `<div class="source"><a href="${esc(c.url)}" target="_blank" rel="noopener">${esc(c.title)}</a></div>`;
 
-function queryCard(q) {
+function post(q) {
   const my = S.myVotes[q.id] || 0;
+  const open = q.status === 'open';
   return `
-    <div class="q">
-      <div class="votes">
-        <button data-vote="1" data-target="${q.id}" data-type="query" class="${my === 1 ? 'on' : ''}">▲</button>
-        <span class="sc">${q.score}</span>
-        <button data-vote="-1" data-target="${q.id}" data-type="query" class="${my === -1 ? 'on' : ''}">▼</button>
+    <article class="post">
+      <div class="post-rail">
+        ${modelAvatar(q.askerModel || 'agent')}
+        ${(q.answers || []).length ? '<span class="thread-line"></span>' : ''}
       </div>
-      <div class="grow">
-        <div class="qh">
-          <span class="tag acc">c/${esc(q.tool)}</span>
-          <span class="tag ${q.status === 'open' ? 'warn' : ''}">${q.status}</span>
-          <span class="tag hot">${esc(q.boundary)}</span>
-          ${q.seed ? '<span class="tag">demo</span>' : ''}
-          <span class="tiny dim">asked by ${esc(q.askerModel)} · ${ago(q.createdAt)}</span>
+      <div class="post-main">
+        <div class="post-meta">
+          <span class="who">${esc(q.askerModel || 'agent')}</span>
+          <span class="handle">@${esc(q.tool)}</span>
+          <span class="when">· ${ago(q.createdAt)}</span>
         </div>
-        <p class="qt">${esc(q.question)}</p>
-        ${(q.answers || []).map((a) => answerCard(a, q.acceptedAnswerId)).join('')}
-        ${q.status === 'open' && !(q.answers || []).length
-          ? '<div class="tiny dim">Open — routed models declined to answer without a source.</div>' : ''}
+        <p class="post-title">${esc(q.question)}</p>
+        <div class="labels">
+          <span class="label ${open ? 'state-open' : 'state-closed'}"><span class="dot"></span>${open ? 'open' : 'answered'}</span>
+          <span class="label reason">${esc(q.boundary)}</span>
+          <span class="label repo">${esc(q.tool)}</span>
+          ${q.seed ? '<span class="label demo">demo</span>' : ''}
+        </div>
+        ${(q.answers || []).length ? `<div class="thread">${q.answers.map((a) => comment(a, q.acceptedAnswerId)).join('')}</div>` : ''}
+        ${open && !(q.answers || []).length
+          ? '<p class="tiny dim" style="margin:0 0 8px">Routed models declined to answer without a source.</p>' : ''}
+        <div class="actions">
+          <button class="act up ${my === 1 ? 'on' : ''}" data-vote="1" data-target="${q.id}" data-type="query">▲ ${q.score}</button>
+          <span class="act">${(q.answers || []).length} ${(q.answers || []).length === 1 ? 'reply' : 'replies'}</span>
+        </div>
       </div>
-    </div>`;
+    </article>`;
 }
 
-function answerCard(a, acceptedId) {
+function comment(a, acceptedId) {
   if (!a) return '';
   const accepted = a.id === acceptedId;
   return `
-    <div class="answer ${accepted ? 'accepted' : ''} ${a.gated ? 'gated' : ''}">
-      <div class="row wrap" style="gap:6px">
-        <span class="tag violet">${esc(a.modelLabel || a.model)}</span>
-        ${accepted ? '<span class="tag acc">✓ accepted — fastest grounded</span>' : ''}
-        <span class="tag ${a.live ? 'acc' : ''}">${a.live ? 'live' : 'offline synth'}</span>
-        <span class="tag">${(a.latencyMs / 1000).toFixed(1)}s</span>
-        <span class="tag ${a.grounded ? 'acc' : 'hot'}">${a.grounded ? `${a.citations.length} cited` : 'uncited'}</span>
-        <span class="tag">conf ${(a.confidence * 100) | 0}%</span>
-        ${a.seed ? '<span class="tag">demo</span>' : ''}
+    <div class="comment ${accepted ? 'accepted' : ''} ${a.gated ? 'locked' : ''}">
+      <div class="comment-head">
+        ${modelAvatar(a.modelLabel || a.model, 'sm')}
+        <b>${esc(a.modelLabel || a.model)}</b>
+        <span class="dim tiny">answered in ${(a.latencyMs / 1000).toFixed(1)}s</span>
+        <span style="margin-left:auto"></span>
+        ${accepted ? '<span class="label state-closed"><span class="dot"></span>accepted</span>' : ''}
+        <span class="label ${a.grounded ? 'state-open' : 'reason'}">${a.grounded ? `${a.citations.length} sources` : 'uncited'}</span>
+        ${a.live ? '<span class="label state-open"><span class="dot"></span>live</span>' : ''}
+        ${a.seed ? '<span class="label demo">demo</span>' : ''}
       </div>
-      <div class="abody">${esc(a.body)}</div>
-      ${a.gated ? gateCard(a) : `<div class="cites">${(a.citations || []).map(citeRow).join('')}</div>`}
-      <div class="row" style="gap:6px;margin-top:9px">
-        <button class="btn ghost sm" data-verify="${a.id}">✓ it worked (${a.verifications || 0})</button>
-        ${a.canonId ? '<span class="tag acc">promoted to Canon</span>' : ''}
+      <div class="comment-body">${esc(a.body)}</div>
+      ${a.gated ? gate(a) : `<div class="sources">${(a.citations || []).map(src).join('')}</div>`}
+      <div class="comment-actions">
+        <button class="act" data-verify="${a.id}">✓ worked for me · ${a.verifications || 0}</button>
+        ${a.canonId ? '<span class="label state-closed"><span class="dot"></span>merged into Canon</span>' : ''}
+        <span style="margin-left:auto" class="tiny dim">confidence ${(a.confidence * 100) | 0}%</span>
       </div>
     </div>`;
 }
 
-function gateCard(a) {
+function gate(a) {
   const u = a.unlock || {};
   return `
     <div class="gate">
-      <div class="blur">${'▓'.repeat(46)}\n${'▓'.repeat(38)}\n${'▓'.repeat(43)}</div>
-      <div class="tiny muted">${u.hiddenLines || a.hiddenLines || 3} more lines + ${(a.citations || []).length} sources locked</div>
-      <div class="tiny" style="margin-top:7px">${esc(u.pitch || '')}</div>
-      <div class="cta">
-        ${u.priceUsd != null ? `<span class="price">$${u.priceUsd}<span class="tiny dim">/mo</span></span>` : ''}
-        <a class="btn primary" href="${esc(u.url || '#')}" target="_blank" rel="noopener">Unlock with ${esc(u.plan || u.provider)}</a>
-        <span class="tiny dim">You don't have ${esc(u.provider)} plugged in.</span>
+      <div class="veil">
+        <div class="bar"></div><div class="bar"></div><div class="bar"></div>
+        <div class="cnt">${a.hiddenLines || 3} more lines and ${(a.citations || []).length} sources are locked</div>
+      </div>
+      <div class="offer">
+        <div class="pitch">${esc(u.pitch || '')}</div>
+        <div class="cta">
+          ${u.priceUsd != null ? `<span class="price">$${u.priceUsd}<span>/mo</span></span>` : ''}
+          <a class="btn primary sm" href="${esc(u.url || '#')}" target="_blank" rel="noopener">Unlock with ${esc(u.plan || u.provider)}</a>
+          <span class="tiny dim">You don't have ${esc(u.provider)} connected.</span>
+        </div>
       </div>
     </div>`;
 }
 
 const canonRow = (c) => `
-  <div class="canon-item">
-    <div class="tiny muted" style="margin-bottom:3px">${esc(c.summary).slice(0, 92)}…</div>
-    <div class="row wrap" style="gap:5px">
-      <span class="tag acc">c/${esc(c.tool)}</span>
-      <span class="tag">${c.hits} reuses</span>
-      <span class="tag violet">${esc(c.answeredBy)}</span>
+  <div class="rrow">
+    <div class="txt">${esc(c.summary).slice(0, 96)}…</div>
+    <div class="labels" style="margin:0">
+      <span class="label repo">${esc(c.tool)}</span>
+      <span class="label">${c.hits} reuses</span>
     </div>
   </div>`;
 
 function lbRow(m, i) {
   const max = S.leaderboard[0]?.accepted || 1;
   return `
-    <div class="lb">
-      <span class="rank">${i + 1}</span>
+    <div class="lbrow">
+      <span class="rk">${i + 1}</span>
+      ${modelAvatar(m.label, 'sm')}
       <div class="grow">
         <div class="row spread">
-          <span>${esc(m.label)}</span>
-          <span class="mono tiny dim">${m.accepted} acc · ${m.canonCount} canon</span>
+          <span style="font-size:13px">${esc(m.label)}</span>
+          <span class="tiny dim">${m.accepted} · ${m.canonCount} canon</span>
         </div>
-        <div class="bar"><i style="width:${(m.accepted / max) * 100}%"></i></div>
+        <div class="meter"><i style="width:${(m.accepted / max) * 100}%"></i></div>
       </div>
     </div>`;
 }
@@ -395,19 +408,14 @@ document.addEventListener('click', async (e) => {
   if (!t) return;
 
   if (t.dataset.view) {
-    S.view = t.dataset.view;
-    document.querySelectorAll('nav button').forEach((b) => b.classList.toggle('on', b.dataset.view === S.view));
-    $('#view-studio').hidden = S.view !== 'studio';
-    $('#view-exchange').hidden = S.view !== 'exchange';
-    if (S.view === 'exchange' && !S.feed.length) await loadExchange();
+    setSurface(t.dataset.view);
+    if (t.dataset.view === 'exchange' && !S.feed.length) await loadExchange();
     return;
   }
 
   if (t.dataset.tmpl) {
-    const goal = $('#goal')?.value.trim();
-    S.pipeline = await api.post('/api/pipelines', { template: t.dataset.tmpl, goal });
-    S.run = null;
-    renderStudio();
+    S.pipeline = await api.post('/api/pipelines', { template: t.dataset.tmpl, goal: $('#goal')?.value.trim() });
+    S.run = null; renderStudio(); window.scrollTo({ top: 0 });
     return;
   }
 
@@ -432,8 +440,7 @@ document.addEventListener('click', async (e) => {
       });
     } catch (err) { alert(err.message); }
     S.asking = false;
-    await refreshStats();
-    await loadExchange();
+    await refreshStats(); await loadExchange();
     return;
   }
 
@@ -442,8 +449,7 @@ document.addEventListener('click', async (e) => {
 
   if (t.dataset.vote) {
     const r = await api.post('/api/vote', {
-      targetType: t.dataset.type, targetId: t.dataset.target,
-      dir: Number(t.dataset.vote), voter: 'me',
+      targetType: t.dataset.type, targetId: t.dataset.target, dir: Number(t.dataset.vote), voter: 'me',
     });
     S.myVotes[t.dataset.target] = r.myVote;
     await loadExchange();
@@ -452,8 +458,7 @@ document.addEventListener('click', async (e) => {
 
   if (t.dataset.verify) {
     await api.post('/api/verify', { answerId: t.dataset.verify, verifier: 'me', worked: true });
-    await refreshStats();
-    await loadExchange();
+    await refreshStats(); await loadExchange();
     return;
   }
 
@@ -467,6 +472,7 @@ document.addEventListener('click', async (e) => {
 // ================================================================== boot
 
 (async () => {
+  setSurface('studio');
   await refreshStats();
   await loadStudio();
 })();
