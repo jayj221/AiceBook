@@ -1,7 +1,7 @@
 {
   "name": "aicebook",
   "version": "0.1.0",
-  "description": "AI'sBook (Aicebook) — one workspace to chain every gen-AI tool, and a back-channel where models ask other models instead of hallucinating.",
+  "description": "AI'sBook (Aicebook), one workspace to chain every gen-AI tool, and a back-channel where models ask other models instead of hallucinating.",
   "type": "module",
   "main": "server.js",
   "scripts": {

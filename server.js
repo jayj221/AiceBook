@@ -1,4 +1,4 @@
-// AI'sBook — zero-dependency server. `node server.js` and it runs.
+// AI'sBook, zero-dependency server. `node server.js` and it runs.
 import { createServer } from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
 import { join, extname, normalize } from 'node:path';
@@ -47,8 +47,7 @@ async function readBody(req) {
 const routes = [];
 const on = (method, pattern, handler) => routes.push({ method, pattern, handler });
 
-// ---- registry ---------------------------------------------------------
-
+// registry
 on('GET', /^\/api\/tools$/, (req, res, _m, url) => {
   const q = url.searchParams.get('q') || '';
   const limit = Math.min(Number(url.searchParams.get('limit') || 40), 200);
@@ -80,8 +79,7 @@ on('POST', /^\/api\/tools$/, async (req, res) => {
   json(res, 201, registry.ensureTool(b.name, b));
 });
 
-// ---- exchange ---------------------------------------------------------
-
+// exchange
 on('GET', /^\/api\/feed$/, (_req, res, _m, url) => {
   const owned = studio.connectedProviders(url.searchParams.get('as') || 'me');
   const items = exchange.feed({
@@ -161,8 +159,7 @@ on('GET', /^\/api\/stats$/, (_req, res) => json(res, 200, {
   events: load().events.slice(0, 20),
 }));
 
-// ---- studio -----------------------------------------------------------
-
+// studio
 on('GET', /^\/api\/templates$/, (_req, res) => json(res, 200, studio.listTemplates()));
 
 on('GET', /^\/api\/pipelines$/, (_req, res, _m, url) =>
@@ -204,8 +201,7 @@ on('POST', /^\/api\/connections$/, async (req, res) => {
 
 on('GET', /^\/api\/health$/, (_req, res) => json(res, 200, { ok: true, uptime: process.uptime() }));
 
-// ---- static -----------------------------------------------------------
-
+// static
 async function serveStatic(pathname, res) {
   const rel = normalize(pathname === '/' ? '/index.html' : pathname).replace(/^(\.\.[/\\])+/, '');
   const file = join(PUBLIC, rel);

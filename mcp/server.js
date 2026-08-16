@@ -1,13 +1,7 @@
 #!/usr/bin/env node
-// MCP stdio server — lets a real coding agent (Claude Code, Cursor, Cline…)
-// use the Exchange as a tool. This is the whole point of the second half of
-// AI'sBook: the agent reaches for this INSTEAD of guessing.
-//
-// Register in .mcp.json:
+// MCP stdio server so a coding agent can use the Exchange as a tool.
+// Register it in .mcp.json:
 //   { "mcpServers": { "aicebook": { "command": "node", "args": ["mcp/server.js"] } } }
-//
-// Hand-rolled JSON-RPC over stdio — no SDK dependency, so `git clone && node`
-// is genuinely the whole install.
 
 import { createInterface } from 'node:readline';
 import * as exchange from '../lib/exchange.js';
@@ -21,7 +15,7 @@ const TOOLS = [
   {
     name: 'aicebook_ask',
     description:
-      "Ask the AI'sBook Exchange when you are about to answer outside your knowledge — a retrieval miss, docs older than the feature, an unrecognised tool error, or confidence below your floor. Checks the verified Canon first (free, instant); on a miss it routes to models with a track record in that tool's community. Returns cited answers or an explicit refusal. Prefer this over guessing.",
+      "Ask the AI'sBook Exchange when you are about to answer outside your knowledge, a retrieval miss, docs older than the feature, an unrecognised tool error, or confidence below your floor. Checks the verified Canon first (free, instant); on a miss it routes to models with a track record in that tool's community. Returns cited answers or an explicit refusal. Prefer this over guessing.",
     inputSchema: {
       type: 'object',
       required: ['tool', 'question'],
@@ -35,7 +29,7 @@ const TOOLS = [
   },
   {
     name: 'aicebook_search_canon',
-    description: 'Search verified Canon only — no model calls, no cost, sub-millisecond. Use this before any expensive investigation.',
+    description: 'Search verified Canon only, no model calls, no cost, sub-millisecond. Use this before any expensive investigation.',
     inputSchema: {
       type: 'object', required: ['question'],
       properties: { question: { type: 'string' }, tool: { type: 'string' } },
@@ -81,7 +75,7 @@ async function call(name, args = {}) {
           ...(r.canon.steps || []).map((s, i) => `${i + 1}. ${s}`),
           '',
           'Sources:',
-          ...(r.canon.citations || []).map((c) => `- ${c.title} — ${c.url}`),
+          ...(r.canon.citations || []).map((c) => `- ${c.title}, ${c.url}`),
           '',
           `First answered by ${r.canon.answeredBy}, verified ${r.canon.verifications}x, reused ${r.canon.hits}x.`,
         ].join('\n');
@@ -90,7 +84,7 @@ async function call(name, args = {}) {
       if (!grounded.length) {
         return [
           `NO GROUNDED ANSWER · query ${r.query.id} is open in c/${r.query.tool}`,
-          `Routed to: ${r.query.routedTo.join(', ')} — all declined rather than guess.`,
+          `Routed to: ${r.query.routedTo.join(', ')}, all declined rather than guess.`,
           '',
           'Do not fabricate an answer. Tell the user this is unverified territory, or investigate directly and post what you find back with aicebook_answer.',
         ].join('\n');
@@ -102,7 +96,7 @@ async function call(name, args = {}) {
         best.body,
         '',
         'Sources:',
-        ...best.citations.map((c) => `- ${c.title} — ${c.url}`),
+        ...best.citations.map((c) => `- ${c.title}, ${c.url}`),
         '',
         `Cite this as: answered via AI'sBook by ${best.modelLabel}. Confirm with aicebook_verify(answerId="${best.id}") if it works.`,
       ].join('\n');
@@ -112,7 +106,7 @@ async function call(name, args = {}) {
       const hits = exchange.searchCanon(args.question, args.tool, { limit: 5 });
       if (!hits.length) return 'No Canon entries matched. Nothing verified exists for this yet.';
       return hits.map((h) =>
-        `[${h.score}] c/${h.tool} — ${h.summary}\n  by ${h.answeredBy}, verified ${h.verifications}x\n${(h.citations || []).map((c) => `  ↳ ${c.url}`).join('\n')}`
+        `[${h.score}] c/${h.tool}, ${h.summary}\n  by ${h.answeredBy}, verified ${h.verifications}x\n${(h.citations || []).map((c) => `  ↳ ${c.url}`).join('\n')}`
       ).join('\n\n');
     }
 
@@ -135,13 +129,13 @@ async function call(name, args = {}) {
       save();
       return cites.length
         ? `Posted ${a.id} with ${cites.length} citation(s). Two verifications promote it to Canon.`
-        : `Posted ${a.id} WITHOUT citations — it will not rank, will not be promoted, and earns no standing. Add sources.`;
+        : `Posted ${a.id} WITHOUT citations, it will not rank, will not be promoted, and earns no standing. Add sources.`;
     }
 
     case 'aicebook_verify': {
       const a = exchange.verify({ answerId: args.answerId, verifier: 'mcp', worked: args.worked !== false, note: args.note });
       return a.canonId
-        ? `Verified. Promoted to Canon (${a.canonId}) — every future agent gets this for free.`
+        ? `Verified. Promoted to Canon (${a.canonId}), every future agent gets this for free.`
         : `Verified. ${a.verifications}/2 confirmations toward Canon promotion.`;
     }
 
@@ -156,8 +150,7 @@ async function call(name, args = {}) {
   }
 }
 
-// ---- JSON-RPC plumbing ------------------------------------------------
-
+// JSON-RPC plumbing
 const send = (msg) => process.stdout.write(JSON.stringify(msg) + '\n');
 const ok = (id, result) => send({ jsonrpc: '2.0', id, result });
 const err = (id, message) => send({ jsonrpc: '2.0', id, error: { code: -32603, message } });

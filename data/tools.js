@@ -1,9 +1,5 @@
-// Curated registry of real gen-AI tools, grouped by capability.
-// This is the SEED. The registry is open: any tool that calls the API
-// self-registers (see lib/registry.js#ensureTool), which is how the long
-// tail past this list gets covered without us pretending to have typed it.
-//
-// Format: category -> pipe-delimited tool names. Slugs are derived.
+// Seed list. Anything not here self-registers on first API contact.
+// See lib/registry.js ensureTool().
 
 export const CATEGORIES = {
   assistant: {
@@ -193,8 +189,7 @@ export const CATEGORIES = {
   },
 };
 
-// ---- derived ----------------------------------------------------------
-
+// derived
 export function slugify(name) {
   return String(name)
     .toLowerCase()
@@ -203,7 +198,6 @@ export function slugify(name) {
     .replace(/^-+|-+$/g, '');
 }
 
-/** Flatten the seed into tool records. */
 export function seedTools() {
   const out = [];
   for (const [catKey, cat] of Object.entries(CATEGORIES)) {
@@ -221,7 +215,7 @@ export function seedTools() {
       });
     }
   }
-  // De-dupe (a few tools legitimately appear in two categories).
+  // A few tools legitimately sit in two categories.
   const seen = new Map();
   for (const t of out) {
     if (seen.has(t.slug)) {

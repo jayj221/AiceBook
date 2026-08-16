@@ -1,4 +1,5 @@
 node_modules/
+.frames/
 data/store.json
 data/store.json.tmp
 .env

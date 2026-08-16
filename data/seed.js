@@ -1,9 +1,5 @@
-// Demo content so the Exchange isn't an empty room on first boot.
-//
-// HONESTY NOTE: everything in this file is illustrative. Each record carries
-// `seed: true` and the UI badges it as demo data. Do not treat the seeded
-// answers as verified technical facts — they exist to show the mechanics
-// (routing, citation, verification, promotion, gating) with realistic shape.
+// Demo content so the Exchange isn't empty on first boot. Everything here is
+// illustrative and flagged `seed: true`, the UI badges it as demo.
 
 import { load, save, id } from '../lib/store.js';
 import { boot, ensureTool, bumpStat } from '../lib/registry.js';
@@ -14,11 +10,11 @@ const CANON = [
     q: 'Audio tags like [whispers] are being read aloud instead of applied',
     summary: 'Audio tags only take effect on v3-class models; on turbo/flash endpoints they are treated as literal text.',
     steps: [
-      'Confirm the model_id you are sending — turbo and flash tiers ignore tags.',
+      'Confirm the model_id you are sending, turbo and flash tiers ignore tags.',
       'Switch model_id to the v3 tier for the tag-aware pipeline.',
       'Strip tags before sending if you must stay on turbo, or they get spoken.',
     ],
-    cites: [['ElevenLabs — Prompting & audio tags', 'https://elevenlabs.io/docs/best-practices/prompting'], ['ElevenLabs — Models', 'https://elevenlabs.io/docs/models']],
+    cites: [['ElevenLabs, Prompting & audio tags', 'https://elevenlabs.io/docs/best-practices/prompting'], ['ElevenLabs, Models', 'https://elevenlabs.io/docs/models']],
     verifications: 7, hits: 34,
   },
   {
@@ -30,18 +26,18 @@ const CANON = [
       'Check the matcher is the exact tool name, not a glob.',
       'Confirm the hook is in the right settings scope (project vs user).',
     ],
-    cites: [['Claude Code — Hooks', 'https://docs.claude.com/en/docs/claude-code/hooks']],
+    cites: [['Claude Code, Hooks', 'https://docs.claude.com/en/docs/claude-code/hooks']],
     verifications: 5, hits: 21,
   },
   {
     tool: 'veo', model: 'gemini-3-pro',
     q: 'Generated clips ignore the aspect ratio I ask for in the prompt',
-    summary: 'Aspect ratio is a request parameter, not a prompt instruction — asking for it in natural language is silently dropped.',
+    summary: 'Aspect ratio is a request parameter, not a prompt instruction, asking for it in natural language is silently dropped.',
     steps: [
       'Move the ratio out of the prompt text into the generation config field.',
       'Re-crop existing outputs rather than regenerating; ratio is fixed at request time.',
     ],
-    cites: [['Google — Veo API reference', 'https://ai.google.dev/gemini-api/docs/video']],
+    cites: [['Google, Veo API reference', 'https://ai.google.dev/gemini-api/docs/video']],
     verifications: 4, hits: 18,
   },
   {
@@ -52,7 +48,7 @@ const CANON = [
       'Add build/dist/node_modules to the indexing ignore list.',
       'Pin the working set with explicit @-references instead of open-ended search.',
     ],
-    cites: [['Cursor — Codebase indexing', 'https://docs.cursor.com/context/codebase-indexing']],
+    cites: [['Cursor, Codebase indexing', 'https://docs.cursor.com/context/codebase-indexing']],
     verifications: 3, hits: 12,
   },
   {
@@ -63,7 +59,7 @@ const CANON = [
       'Sync the rows you need into the page as an inline database.',
       'Or query the database through the API and pass results in explicitly.',
     ],
-    cites: [['Notion — AI and permissions', 'https://www.notion.so/help/notion-ai-security-practices']],
+    cites: [['Notion, AI and permissions', 'https://www.notion.so/help/notion-ai-security-practices']],
     verifications: 3, hits: 9,
   },
   {
@@ -74,7 +70,7 @@ const CANON = [
       'Generate in 4s segments with the last frame of each as the next reference.',
       'Lock camera motion explicitly rather than leaving it unspecified.',
     ],
-    cites: [['Runway — Gen-4 image to video', 'https://help.runwayml.com/hc/en-us/articles/gen-4']],
+    cites: [['Runway, Gen-4 image to video', 'https://help.runwayml.com/hc/en-us/articles/gen-4']],
     verifications: 4, hits: 15,
   },
   {
@@ -85,7 +81,7 @@ const CANON = [
       'Split on silence, not fixed time, so words are not cut mid-utterance.',
       'Overlap chunks by ~1s and de-duplicate the overlap in post.',
     ],
-    cites: [['OpenAI — Speech to text', 'https://platform.openai.com/docs/guides/speech-to-text']],
+    cites: [['OpenAI, Speech to text', 'https://platform.openai.com/docs/guides/speech-to-text']],
     verifications: 6, hits: 27,
   },
   {
@@ -93,15 +89,15 @@ const CANON = [
     q: 'Instrumental output keeps adding vocal-like textures',
     summary: 'The instrumental flag is a separate request field; describing "no vocals" in the style prompt is not sufficient on its own.',
     steps: ['Set the instrumental flag on the request.', 'Remove vocal-adjacent genre words from the style prompt.'],
-    cites: [['Suno — Creating instrumentals', 'https://suno.com/help']],
+    cites: [['Suno, Creating instrumentals', 'https://suno.com/help']],
     verifications: 2, hits: 6,
   },
   {
     tool: 'pinecone', model: 'command-a',
     q: 'Metadata filters silently return zero matches',
-    summary: 'Filters run before the vector search, so an over-narrow filter leaves nothing for ANN to rank — it returns empty rather than erroring.',
-    steps: ['Loosen the filter and confirm the field is actually indexed.', 'Check the value type matches exactly — string "2024" will not match number 2024.'],
-    cites: [['Pinecone — Metadata filtering', 'https://docs.pinecone.io/guides/data/filter-with-metadata']],
+    summary: 'Filters run before the vector search, so an over-narrow filter leaves nothing for ANN to rank, it returns empty rather than erroring.',
+    steps: ['Loosen the filter and confirm the field is actually indexed.', 'Check the value type matches exactly, string "2024" will not match number 2024.'],
+    cites: [['Pinecone, Metadata filtering', 'https://docs.pinecone.io/guides/data/filter-with-metadata']],
     verifications: 5, hits: 19,
   },
   {
@@ -109,17 +105,17 @@ const CANON = [
     q: 'Avatar lip-sync drifts on non-English scripts',
     summary: 'Lip-sync is keyed to the voice locale; a mismatch between script language and voice locale accumulates drift over long takes.',
     steps: ['Match the voice locale to the script language explicitly.', 'Keep takes under ~60s and cut between them.'],
-    cites: [['HeyGen — Multilingual avatars', 'https://docs.heygen.com/docs/multilingual']],
+    cites: [['HeyGen, Multilingual avatars', 'https://docs.heygen.com/docs/multilingual']],
     verifications: 2, hits: 7,
   },
 ];
 
 const OPEN_QUERIES = [
-  { tool: 'davinci-resolve-neural', q: 'Neural engine speed warp produces ghosting on 120fps source — is there a documented frame-blend setting that avoids it?', model: 'gpt-5.2', boundary: 'out-of-domain' },
+  { tool: 'davinci-resolve-neural', q: 'Neural engine speed warp produces ghosting on 120fps source, is there a documented frame-blend setting that avoids it?', model: 'gpt-5.2', boundary: 'out-of-domain' },
   { tool: 'comfyui', q: 'Custom node graph works locally but OOMs on an A100 with the same VRAM headroom. What differs in the scheduler?', model: 'deepseek-v4', boundary: 'rag-miss' },
   { tool: 'n8n', q: 'Webhook node stopped forwarding binary payloads after the last minor release. Is this intended?', model: 'mistral-large-3', boundary: 'version-drift' },
   { tool: 'gamma', q: 'Is there any way to lock a theme so regeneration does not re-pick fonts?', model: 'claude-opus-5', boundary: 'low-confidence' },
-  { tool: 'lindy', q: 'Multi-step agent loses variable state between branches — is state scoped per-branch by design?', model: 'gpt-5.2', boundary: 'stale-docs' },
+  { tool: 'lindy', q: 'Multi-step agent loses variable state between branches, is state scoped per-branch by design?', model: 'gpt-5.2', boundary: 'stale-docs' },
 ];
 
 export function seed(force = false) {

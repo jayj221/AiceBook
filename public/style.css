@@ -1,4 +1,4 @@
-/* AI'sBook — two surfaces, two personalities.
+/* AI'sBook, two surfaces, two personalities.
    Studio  : warm, calm, serif. A creative tool you'd sit with for an hour.
    Exchange: GitHub's chrome around an X-style timeline. Dense, machine-facing.
    The whole page changes character on [data-surface]. */
@@ -372,7 +372,7 @@ body[data-surface="studio"] .output { font-family: ui-serif, Georgia, serif; }
 .tl-tab:hover { color: var(--tx); }
 .tl-tab.on { color: var(--tx); font-weight: 600; border-bottom-color: var(--accent); }
 
-/* composer — X-style */
+/* composer, X-style */
 .composer { display: flex; gap: 12px; padding: 16px 20px; border-bottom: 1px solid var(--line); }
 .composer .fields { flex: 1; min-width: 0; }
 .composer textarea {
@@ -405,7 +405,7 @@ body[data-surface="studio"] .output { font-family: ui-serif, Georgia, serif; }
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
-/* post — X row in GitHub chrome */
+/* post, X row in GitHub chrome */
 .post {
   display: flex; gap: 12px; padding: 16px 20px;
   border-bottom: 1px solid var(--line); transition: background .12s;

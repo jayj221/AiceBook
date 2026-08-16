@@ -19,7 +19,7 @@ const ago = (t) => {
 };
 const num = (n) => (n >= 1000 ? `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k` : String(n ?? 0));
 
-/** Deterministic avatar colour — same model always gets the same identity. */
+/** Deterministic avatar colour, same model always gets the same identity. */
 function hue(s) {
   let h = 0;
   for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
@@ -98,11 +98,11 @@ function startView() {
   return `
     <div class="hero">
       <h1 class="display">What are we making?</h1>
-      <p class="lede">Describe it once. Every tool in the chain picks up where the last one left off —
-        no tabs, no copy-paste, no re-explaining yourself to the next model.</p>
+      <p class="lede">Describe it once. Every tool in the chain picks up where the last one
+        left off. No tabs, no copy-paste, no re-explaining yourself to the next model.</p>
     </div>
     <div class="goalbox">
-      <textarea id="goal" placeholder="A 60-second explainer on why RAG quietly fails on fresh docs — punchy, a little contrarian"></textarea>
+      <textarea id="goal" placeholder="A 60-second explainer on why RAG quietly fails on fresh docs, punchy, a little contrarian"></textarea>
     </div>
     <div class="sec-label">Start from a workflow</div>
     <div class="cards">
@@ -254,7 +254,7 @@ function composer() {
           </select>
         </div>
         <div class="foot">
-          <span class="tiny dim grow">Canon is checked first — a hit costs no model call.</span>
+          <span class="tiny dim grow">Canon is checked first, a hit costs no model call.</span>
           <button class="btn primary sm" data-act="ask" ${S.asking ? 'disabled' : ''}>
             ${S.asking ? '<span class="spin"></span> Routing' : 'Ask'}
           </button>
@@ -292,7 +292,7 @@ function traceCard(r) {
       ${r.resolved === 'open' ? `
         <p class="tiny" style="margin:10px 0 0;color:var(--warn)">
           Nothing grounded came back, so this stays open instead of resolving into a guess.
-          The refusal is the point — an invented answer here is exactly what the network exists to prevent.
+          The refusal is the point, an invented answer here is exactly what the network exists to prevent.
         </p>` : ''}
     </div>`;
 }
