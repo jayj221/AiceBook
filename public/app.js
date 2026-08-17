@@ -1,4 +1,4 @@
-// AI'sBook client. No framework, no build step.
+// AI'sBook (AiceBook) client. No framework, no build step.
 
 const $ = (s, r = document) => r.querySelector(s);
 const api = {
