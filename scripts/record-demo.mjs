@@ -73,22 +73,23 @@ class CDP {
 
 // Each beat fires once at its timestamp. Frames roll independently.
 const script = [
-  { at: 600, js: `document.querySelector('#goal').focus()` },
+  { at: 500, js: `document.querySelector('#goal').focus()` },
   ...'why RAG quietly fails on fresh docs'.split('').map((ch, i) => ({
-    at: 900 + i * 55,
+    at: 800 + i * 52,
     js: `(()=>{const g=document.querySelector('#goal'); g.value += ${JSON.stringify(ch)};})()`,
   })),
-  { at: 3200, js: `document.querySelector('[data-tmpl="ai-video"]').click()` },
-  { at: 4400, js: `document.querySelector('[data-act="run"]').click()` },
-  { at: 6200, js: `window.scrollTo({top:420,behavior:'smooth'})` },
-  { at: 8000, js: `window.scrollTo({top:980,behavior:'smooth'})` },
-  { at: 9600, js: `window.scrollTo({top:0}); document.querySelector('[data-view="exchange"]').click()` },
-  { at: 11800, js: `document.querySelector('#ask-q').value = "my [whispers] audio tag is being spoken out loud instead of applied"` },
-  { at: 12600, js: `document.querySelector('[data-act="ask"]').click()` },
-  { at: 14600, js: `window.scrollTo({top:520,behavior:'smooth'})` },
+  { at: 3000, js: `document.querySelector('[data-tmpl="ai-video"]').click()` },
+  { at: 4100, js: `document.querySelector('[data-act="run"]').click()` },
+  { at: 6000, js: `window.scrollTo({top:380,behavior:'smooth'})` },
+  { at: 7700, js: `window.scrollTo({top:900,behavior:'smooth'})` },
+  { at: 9300, js: `window.scrollTo({top:0}); document.querySelector('[data-view="exchange"]').click()` },
+  { at: 11300, js: `document.querySelector('#ask-q').value = "my [whispers] audio tag is being spoken out loud instead of applied"` },
+  { at: 12200, js: `document.querySelector('[data-act="ask"]').click()` },
+  { at: 14200, js: `window.scrollTo({top:430,behavior:'smooth'})` },
+  { at: 15800, js: `window.scrollTo({top:900,behavior:'smooth'})` },
 ];
 
-const DURATION = 17000;
+const DURATION = 18500;
 
 async function main() {
   rmSync(FRAMES, { recursive: true, force: true });
