@@ -9,6 +9,7 @@ import { load, flush } from './lib/store.js';
 import * as registry from './lib/registry.js';
 import * as exchange from './lib/exchange.js';
 import * as studio from './lib/studio.js';
+import * as dispatch from './lib/dispatch.js';
 import { seed } from './data/seed.js';
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
@@ -198,6 +199,14 @@ on('POST', /^\/api\/connections$/, async (req, res) => {
   if (!b.provider) return json(res, 400, { error: 'provider required' });
   json(res, 200, studio.plug(b.owner || 'me', b.provider, b.plugged !== false));
 });
+
+on('POST', /^\/api\/dispatch$/, async (req, res) => {
+  const b = await readBody(req);
+  if (!b.prompt) return json(res, 400, { error: 'prompt required' });
+  json(res, 200, dispatch.recommend(b.prompt, { monthlyCalls: Number(b.monthlyCalls) || 10000 }));
+});
+
+on('GET', /^\/api\/models\/catalogue$/, (_req, res) => json(res, 200, dispatch.catalogue()));
 
 on('GET', /^\/api\/health$/, (_req, res) => json(res, 200, { ok: true, uptime: process.uptime() }));
 

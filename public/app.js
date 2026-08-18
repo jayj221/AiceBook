@@ -36,6 +36,7 @@ const S = {
   feed: [], sort: 'hot', community: null, communities: [],
   canon: [], leaderboard: [],
   asking: false, askResult: null, myVotes: {},
+  dispatching: false, dispatchResult: null, monthlyCalls: 10000,
 };
 
 async function refreshStats() {
@@ -53,6 +54,7 @@ function setView(v) {
   document.querySelectorAll('.tabs button').forEach((b) => b.classList.toggle('on', b.dataset.view === v));
   $('#view-studio').hidden = v !== 'studio';
   $('#view-exchange').hidden = v !== 'exchange';
+  $('#view-dispatch').hidden = v !== 'dispatch';
 }
 
 // studio
@@ -425,15 +427,175 @@ function lbRow(m, i) {
     </div>`;
 }
 
+
+// dispatch
+
+const SAMPLES = [
+  ['Bulk transform', 'Summarise these 4000 support tickets into themes. We run this nightly for every ticket.', 100000],
+  ['Deep reasoning', 'Architect a multi region failover for our payment service and reason through the trade-offs.', 2000],
+  ['Repo work', 'Debug a race condition across our monorepo. It only shows up in production.', 1000],
+  ['Narration', 'Narrate this 60 second script with a warm, measured tone.', 5000],
+  ['High stakes', 'Review this vendor contract for liability exposure before we sign.', 300],
+];
+
+function renderDispatch() {
+  const r = S.dispatchResult;
+  $('#view-dispatch').innerHTML = `
+    <div class="shell">
+      <div class="col-l">
+        <div class="box">
+          <div class="box-h">Try one</div>
+          <div style="padding:6px">
+            ${SAMPLES.map(([label, prompt, calls], i) => `
+              <div class="nav" data-sample="${i}">
+                <span class="grow trunc">${esc(label)}</span>
+                <span class="c">${num(calls)}</span>
+              </div>`).join('')}
+          </div>
+        </div>
+        <div class="box">
+          <div class="box-h">How the tier is set</div>
+          <div class="box-b tiny muted" style="line-height:1.65">
+            <p style="margin:0 0 8px">Reasoning words push the tier up. Transform words pull it down.</p>
+            <p style="margin:0 0 8px">Stakes language sets a floor you cannot cost cut through.</p>
+            <p style="margin:0">Volume language caps the ceiling, because anything running a million times a month cannot afford headroom it never uses.</p>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="stage-h">
+          <h1>Which model should run this</h1>
+          <p>Paste the prompt you were about to send. Dispatch reads what the job actually
+            needs, picks the cheapest model that clears that bar, and prices it against
+            routing everything to a flagship.</p>
+        </div>
+        <div class="composer" style="margin-bottom:16px">
+          ${face('you')}
+          <div class="f">
+            <textarea id="dp-prompt" placeholder="Summarise these 4000 support tickets into themes. We run this nightly for every ticket."></textarea>
+            <div class="opts">
+              <input id="dp-calls" type="number" min="1" value="${S.monthlyCalls}" placeholder="calls per month">
+              <span class="pill">calls per month</span>
+            </div>
+            <div class="send">
+              <span class="grow tiny dim">Prices are a snapshot in data/models.js, not a live feed.</span>
+              <button class="btn go sm" data-act="dispatch" ${S.dispatching ? 'disabled' : ''}>
+                ${S.dispatching ? '<span class="spin"></span> Reading' : 'Pick a model'}
+              </button>
+            </div>
+          </div>
+        </div>
+        ${r ? dispatchResult(r) : '<div class="empty">Pick a sample on the left or paste your own prompt.</div>'}
+      </div>
+
+      <div class="col-r">
+        ${r ? `
+          <div class="box">
+            <div class="box-h">Monthly spend</div>
+            <div class="kpis">
+              <div class="kpi"><div class="k">This routing</div><div class="v" style="color:var(--green)">$${fmt(r.economics.monthly)}</div></div>
+              <div class="kpi"><div class="k">Flagship only</div><div class="v" style="color:var(--red)">$${fmt(r.economics.naiveMonthly)}</div></div>
+              <div class="kpi"><div class="k">Saved</div><div class="v">$${fmt(r.economics.savedMonthly)}</div></div>
+              <div class="kpi"><div class="k">Reduction</div><div class="v">${r.economics.savedPct}%</div></div>
+            </div>
+          </div>` : ''}
+        <div class="box">
+          <div class="box-h">Catalogue <span class="r">checked ${r ? esc(r.pricesChecked) : '2026-08'}</span></div>
+          <div class="box-b tiny muted" style="line-height:1.6">
+            List prices in USD per million tokens, or per character, second, image,
+            minute or track where a vendor bills that way. Vendors change them without
+            notice and enterprise rates differ. Edit data/models.js before anyone makes
+            a budget decision on these numbers.
+          </div>
+        </div>
+      </div>
+    </div>`;
+}
+
+function dispatchResult(r) {
+  const e = r.economics;
+  const sig = Object.entries(r.task.signals).filter(([, v]) => v).map(([k]) => k);
+  return `
+    <div class="result hit" style="margin-bottom:14px">
+      <div class="result-h">
+        <span class="pill green"><span class="d"></span>${esc(r.task.mode)}</span>
+        <span class="pill ${r.task.tier >= 3 ? 'red' : r.task.tier === 2 ? 'amber' : 'blue'}">${esc(r.task.tierName)} tier</span>
+        <span>${e.savedPct}% cheaper than ${esc(e.naiveModel)}</span>
+      </div>
+      <div class="result-b">
+        <div class="row" style="gap:12px;align-items:flex-start;margin-bottom:12px">
+          ${face(r.pick.tool)}
+          <div class="grow">
+            <div style="font-size:17px;font-weight:600">${esc(nameOf(r.pick.tool, r.pick.label))}</div>
+            <div class="tiny muted" style="margin-top:3px">${esc(r.pick.note)}</div>
+          </div>
+          <div style="text-align:right">
+            <div class="mono" style="font-size:19px;font-weight:700;color:var(--green)">$${r.pick.costPerCall}</div>
+            <div class="tiny dim">${esc(r.pick.unit)}</div>
+          </div>
+        </div>
+        <p class="tiny muted" style="margin:0 0 12px">${esc(r.pick.why)}</p>
+        <div class="labels" style="margin:0">
+          ${sig.map((k) => `<span class="pill mono">${esc(k.replace(/([A-Z])/g, ' $1').toLowerCase())}</span>`).join('')}
+          <span class="pill mono">~${num(r.task.estimate.inTokens)} in</span>
+          <span class="pill mono">~${num(r.task.estimate.outTokens)} out</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="box" style="margin-bottom:14px">
+      <div class="box-h">Alternatives <span class="r">same job, different bill</span></div>
+      ${r.alternatives.map((a) => `
+        <div class="rrow">
+          <div class="row spread" style="margin-bottom:4px">
+            <b style="font-size:13px">${esc(nameOf(a.tool, a.label))}</b>
+            <span class="mono tiny ${a.delta > 0 ? 'dim' : ''}" style="${a.delta > 0 ? '' : 'color:var(--green)'}">
+              $${a.costPerCall} ${a.delta > 0 ? `(+$${a.delta})` : ''}
+            </span>
+          </div>
+          <p style="margin:0">${esc(a.note)}</p>
+        </div>`).join('')}
+      ${r.subscriptions.length ? r.subscriptions.map((x) => `
+        <div class="rrow">
+          <div class="row spread" style="margin-bottom:4px">
+            <b style="font-size:13px">${esc(x.label)}</b>
+            <span class="mono tiny">$${x.seatUsd}/seat/mo</span>
+          </div>
+          <p style="margin:0">${esc(x.note)} Seat priced, so it does not enter the per call comparison.</p>
+        </div>`).join('') : ''}
+    </div>
+
+    <div class="box">
+      <div class="box-h">Before you route production traffic through this</div>
+      <div style="padding:6px 0">
+        ${r.cautions.map((c) => `<div class="rrow" style="border:0;padding:8px 14px"><p style="margin:0">${esc(c)}</p></div>`).join('')}
+      </div>
+    </div>`;
+}
+
+// "Llama" + "Llama 4 405B" reads badly, so drop the tool when the label already says it.
+const nameOf = (tool, label) => (label.toLowerCase().startsWith(tool.toLowerCase()) ? label : `${tool} ${label}`);
+const fmt = (n) => (n >= 1000 ? n.toLocaleString('en-US', { maximumFractionDigits: 0 }) : n.toFixed(2));
+
+async function runDispatch(prompt, calls) {
+  S.dispatching = true; renderDispatch();
+  try {
+    S.dispatchResult = await api.post('/api/dispatch', { prompt, monthlyCalls: calls || S.monthlyCalls });
+  } catch (err) { alert(err.message); }
+  S.dispatching = false; renderDispatch();
+}
+
 // events
 
 document.addEventListener('click', async (e) => {
-  const t = e.target.closest('[data-view],[data-tmpl],[data-act],[data-comm],[data-sort],[data-vote],[data-verify],[data-plug]');
+  const t = e.target.closest('[data-view],[data-tmpl],[data-act],[data-comm],[data-sort],[data-vote],[data-verify],[data-plug],[data-sample]');
   if (!t) return;
 
   if (t.dataset.view) {
     setView(t.dataset.view);
     if (t.dataset.view === 'exchange' && !S.feed.length) await loadExchange();
+    if (t.dataset.view === 'dispatch') renderDispatch();
     return;
   }
   if (t.dataset.tmpl) {
@@ -460,6 +622,19 @@ document.addEventListener('click', async (e) => {
     } catch (err) { alert(err.message); }
     S.asking = false;
     await refreshStats(); await loadExchange();
+    return;
+  }
+  if (t.dataset.sample) {
+    const [, prompt, calls] = SAMPLES[Number(t.dataset.sample)];
+    S.monthlyCalls = calls;
+    await runDispatch(prompt, calls);
+    return;
+  }
+  if (t.dataset.act === 'dispatch') {
+    const prompt = $('#dp-prompt').value.trim();
+    if (!prompt) return;
+    S.monthlyCalls = Number($('#dp-calls').value) || 10000;
+    await runDispatch(prompt, S.monthlyCalls);
     return;
   }
   if (t.dataset.comm !== undefined) { S.community = t.dataset.comm || null; await loadExchange(); return; }

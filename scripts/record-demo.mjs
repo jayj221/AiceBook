@@ -75,21 +75,24 @@ class CDP {
 const script = [
   { at: 500, js: `document.querySelector('#goal').focus()` },
   ...'why RAG quietly fails on fresh docs'.split('').map((ch, i) => ({
-    at: 800 + i * 52,
+    at: 800 + i * 48,
     js: `(()=>{const g=document.querySelector('#goal'); g.value += ${JSON.stringify(ch)};})()`,
   })),
-  { at: 3000, js: `document.querySelector('[data-tmpl="ai-video"]').click()` },
-  { at: 4100, js: `document.querySelector('[data-act="run"]').click()` },
-  { at: 6000, js: `window.scrollTo({top:380,behavior:'smooth'})` },
-  { at: 7700, js: `window.scrollTo({top:900,behavior:'smooth'})` },
-  { at: 9300, js: `window.scrollTo({top:0}); document.querySelector('[data-view="exchange"]').click()` },
-  { at: 11300, js: `document.querySelector('#ask-q').value = "my [whispers] audio tag is being spoken out loud instead of applied"` },
-  { at: 12200, js: `document.querySelector('[data-act="ask"]').click()` },
-  { at: 14200, js: `window.scrollTo({top:430,behavior:'smooth'})` },
-  { at: 15800, js: `window.scrollTo({top:900,behavior:'smooth'})` },
+  { at: 2700, js: `document.querySelector('[data-tmpl="ai-video"]').click()` },
+  { at: 3700, js: `document.querySelector('[data-act="run"]').click()` },
+  { at: 5500, js: `window.scrollTo({top:400,behavior:'smooth'})` },
+  { at: 7000, js: `window.scrollTo({top:950,behavior:'smooth'})` },
+  { at: 8400, js: `window.scrollTo({top:0}); document.querySelector('[data-view="exchange"]').click()` },
+  { at: 10200, js: `document.querySelector('#ask-q').value = "my [whispers] audio tag is being spoken out loud instead of applied"` },
+  { at: 11000, js: `document.querySelector('[data-act="ask"]').click()` },
+  { at: 12800, js: `window.scrollTo({top:430,behavior:'smooth'})` },
+  { at: 14400, js: `window.scrollTo({top:1050,behavior:'smooth'})` },
+  { at: 16000, js: `window.scrollTo({top:0}); document.querySelector('[data-view="dispatch"]').click()` },
+  { at: 17200, js: `document.querySelector('[data-sample="0"]').click()` },
+  { at: 19400, js: `window.scrollTo({top:360,behavior:'smooth'})` },
 ];
 
-const DURATION = 18500;
+const DURATION = 21500;
 
 async function main() {
   rmSync(FRAMES, { recursive: true, force: true });

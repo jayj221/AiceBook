@@ -6,6 +6,7 @@
 import { createInterface } from 'node:readline';
 import * as exchange from '../lib/exchange.js';
 import * as registry from '../lib/registry.js';
+import * as dispatch from '../lib/dispatch.js';
 import { seed } from '../data/seed.js';
 
 registry.boot();
@@ -24,6 +25,17 @@ const TOOLS = [
         question: { type: 'string', description: 'The specific question you cannot ground.' },
         context: { type: 'string', description: 'What you already tried, error text, versions.' },
         boundary: { type: 'string', enum: Object.keys(exchange.BOUNDARIES), description: 'Why you are asking.' },
+      },
+    },
+  },
+  {
+    name: 'aicebook_pick_model',
+    description: 'Given a prompt, work out which gen-AI tool and which model tier the job actually needs, and what it costs. Use this before spending frontier tokens on work that a cheap model would do just as well. Returns the cheapest model that clears the bar, the alternatives, and the monthly spend against a flagship-for-everything baseline.',
+    inputSchema: {
+      type: 'object', required: ['prompt'],
+      properties: {
+        prompt: { type: 'string', description: 'The prompt or task you were about to run.' },
+        monthlyCalls: { type: 'number', description: 'How often this runs per month. Drives the projection.' },
       },
     },
   },
@@ -99,6 +111,29 @@ async function call(name, args = {}) {
         ...best.citations.map((c) => `- ${c.title}, ${c.url}`),
         '',
         `Cite this as: answered via AI'sBook (AiceBook) by ${best.modelLabel}. Confirm with aicebook_verify(answerId="${best.id}") if it works.`,
+      ].join('\n');
+    }
+
+    case 'aicebook_pick_model': {
+      const r = dispatch.recommend(args.prompt, { monthlyCalls: args.monthlyCalls || 10000 });
+      const e = r.economics;
+      return [
+        `${r.pick.tool} / ${r.pick.label}`,
+        `task read as ${r.task.mode} at ${r.task.tierName} tier`,
+        '',
+        r.pick.why,
+        '',
+        `$${e.perCall} per call. At ${e.monthlyCalls} calls a month that is $${e.monthly.toFixed(2)}.`,
+        `Routing everything to ${e.naiveModel} instead would cost $${e.naiveMonthly.toFixed(2)}, so this saves ${e.savedPct}%.`,
+        '',
+        'Alternatives:',
+        ...r.alternatives.map((a) => `- ${a.tool} ${a.label} at $${a.costPerCall} per call. ${a.note}`),
+        ...(r.subscriptions.length ? ['', 'Seat priced options:', ...r.subscriptions.map((x) => `- ${x.label} at $${x.seatUsd} per seat per month`)] : []),
+        '',
+        'Cautions:',
+        ...r.cautions.map((c) => `- ${c}`),
+        '',
+        `Prices are an approximate snapshot from ${r.pricesChecked}, held in data/models.js. Verify before budgeting.`,
       ].join('\n');
     }
 
