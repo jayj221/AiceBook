@@ -37,9 +37,16 @@ function json(res, code, body) {
   res.end(s);
 }
 
+const MAX_BODY = 1024 * 1024; // 1 MB, far above any prompt or chain we accept
+
 async function readBody(req) {
   const chunks = [];
-  for await (const c of req) chunks.push(c);
+  let size = 0;
+  for await (const c of req) {
+    size += c.length;
+    if (size > MAX_BODY) throw new Error('request body too large');
+    chunks.push(c);
+  }
   if (!chunks.length) return {};
   try { return JSON.parse(Buffer.concat(chunks).toString('utf8')); }
   catch { throw new Error('invalid JSON body'); }
