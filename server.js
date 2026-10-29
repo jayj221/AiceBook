@@ -270,4 +270,5 @@ server.listen(PORT, () => {
   console.log(`  live providers: ${live.length ? live.join(', ') : 'none (set API keys to run steps for real)'}\n`);
 });
 
-process.on('SIGINT', () => { flush(); server.close(() => process.exit(0)); });
+// SIGTERM is what docker, systemd and most hosts send on stop.
+for (const sig of ['SIGINT', 'SIGTERM']) process.on(sig, () => { flush(); server.close(() => process.exit(0)); });
