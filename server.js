@@ -58,7 +58,7 @@ const on = (method, pattern, handler) => routes.push({ method, pattern, handler 
 // registry
 on('GET', /^\/api\/tools$/, (req, res, _m, url) => {
   const q = url.searchParams.get('q') || '';
-  const limit = Math.min(Number(url.searchParams.get('limit') || 40), 200);
+  const limit = Math.min(Math.max(1, Math.floor(Number(url.searchParams.get('limit'))) || 40), 200);
   json(res, 200, {
     total: registry.allTools().length,
     results: registry.searchTools(q, {
