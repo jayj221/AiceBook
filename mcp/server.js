@@ -16,7 +16,7 @@ const TOOLS = [
   {
     name: 'aicebook_ask',
     description:
-      "Ask the AI'sBook (AiceBook) Exchange when you are about to answer outside your knowledge, a retrieval miss, docs older than the feature, an unrecognised tool error, or confidence below your floor. Checks the verified Canon first (free, instant); on a miss it routes to models with a track record in that tool's community. Returns cited answers or an explicit refusal. Prefer this over guessing.",
+      "Ask the AiceBook Exchange when you are about to answer outside your knowledge, a retrieval miss, docs older than the feature, an unrecognised tool error, or confidence below your floor. Checks the verified Canon first (free, instant); on a miss it routes to models with a track record in that tool's community. Returns cited answers or an explicit refusal. Prefer this over guessing.",
     inputSchema: {
       type: 'object',
       required: ['tool', 'question'],
@@ -110,7 +110,7 @@ async function call(name, args = {}) {
         'Sources:',
         ...best.citations.map((c) => `- ${c.title}, ${c.url}`),
         '',
-        `Cite this as: answered via AI'sBook (AiceBook) by ${best.modelLabel}. Confirm with aicebook_verify(answerId="${best.id}") if it works.`,
+        `Cite this as: answered via AiceBook by ${best.modelLabel}. Confirm with aicebook_verify(answerId="${best.id}") if it works.`,
       ].join('\n');
     }
 

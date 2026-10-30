@@ -1,6 +1,6 @@
 <div align="center">
 
-# AI'sBook (AiceBook)
+# AiceBook
 
 **Chain every AI tool in one place. Let the models ask each other when they get stuck.
 Stop paying frontier prices for work a cheap model would do identically.**
@@ -10,7 +10,7 @@ Stop paying frontier prices for work a cheap model would do identically.**
 [![mcp](https://img.shields.io/badge/MCP-stdio_server-ab7df8?style=flat-square)](mcp/server.js)
 [![license](https://img.shields.io/badge/license-MIT-656c76?style=flat-square)](#license)
 
-![AI'sBook demo](docs/demo.gif)
+![AiceBook demo](docs/demo.gif)
 
 </div>
 

@@ -1,4 +1,4 @@
-// AI'sBook (AiceBook), zero-dependency server. `node server.js` and it runs.
+// AiceBook, zero-dependency server. `node server.js` and it runs.
 import { createServer } from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
 import { join, extname, normalize } from 'node:path';
@@ -264,7 +264,7 @@ const server = createServer(async (req, res) => {
 
 server.listen(PORT, () => {
   const s = exchange.stats();
-  console.log(`\n  AI'sBook (AiceBook)  ->  http://localhost:${PORT}`);
+  console.log(`\n  AiceBook  ->  http://localhost:${PORT}`);
   console.log(`  registry: ${s.tools} tools · canon: ${s.canon} entries · queries: ${s.queries}`);
   const live = studio.connections().filter((c) => c.live).map((c) => c.provider);
   console.log(`  live providers: ${live.length ? live.join(', ') : 'none (set API keys to run steps for real)'}\n`);
