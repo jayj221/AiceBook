@@ -6,3 +6,4 @@ data/store.json.tmp
 .env.local
 .DS_Store
 *.log
+.claude/
